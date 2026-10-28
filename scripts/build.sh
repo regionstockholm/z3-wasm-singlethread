@@ -32,6 +32,10 @@ case "$EXC" in
   wasm) CC_EXC="-fwasm-exceptions";               LINK_EXC="-fwasm-exceptions" ;;
   *) echo "Z3W_EXCEPTIONS must be js or wasm" >&2; exit 1 ;;
 esac
+# Reproducibility: strip the checkout location from __FILE__ strings and debug info, so the
+# output does not depend on where the work directory is (CI vs. a local rebuild).
+REPRO="-ffile-prefix-map=$WORK=."
+CC_EXC="$CC_EXC $REPRO"
 GEN=(); command -v ninja >/dev/null && GEN=(-G Ninja)
 
 start=$(date +%s)
@@ -51,7 +55,7 @@ mkdir -p "$OUT"
 # low-level API; we link a 3-function wrapper (src/z3w.cc). See BUILD-DIFF.md.
 # shellcheck disable=SC2086
 emcc src/z3w.cc "$WORK/build/libz3.a" -I "$WORK/z3/src/api" \
-  -O3 -std=c++20 $LINK_EXC -s WASM_BIGINT \
+  -O3 -std=c++20 $LINK_EXC $REPRO -s WASM_BIGINT \
   -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=createZ3Module \
   -sENVIRONMENT=web,worker,node \
   -sINITIAL_MEMORY=64MB -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=4GB -sSTACK_SIZE=20MB \

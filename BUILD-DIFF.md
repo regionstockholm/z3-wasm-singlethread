@@ -17,6 +17,7 @@ zips, NuGet packages and Python wheels only, and `z3-solver` always needs pthrea
 |---|---|---|---|
 | cmake | `-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DZ3_SINGLE_THREADED=ON` | same **+ `-DZ3_POLLING_TIMER=ON`** | Without threads, `scoped_timer` (used by `:timeout`) would try to start a `std::thread`; `POLLING_TIMER` makes Z3 check the deadline while it works instead. |
 | CXXFLAGS | `-pthread -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0` | `-s DISABLE_EXCEPTION_CATCHING=0` | Threading flags removed: no `SharedArrayBuffer`, so no COOP/COEP headers needed. Optional `Z3W_EXCEPTIONS=wasm` uses `-fwasm-exceptions` instead (see below). |
+| reproducibility | – | `-ffile-prefix-map=$WORK=.` on compile and link | Z3 embeds `__FILE__` in assertion messages; without the map, the absolute checkout path ends up in the wasm and the hash changes with the directory. |
 | LDFLAGS | `-s WASM_BIGINT -s -pthread -s USE_PTHREADS=1` | `-s WASM_BIGINT` | Threading flags removed. |
 
 Note that upstream already builds the solver with `-DZ3_SINGLE_THREADED=ON`; its pthreads exist

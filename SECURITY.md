@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please report suspected vulnerabilities **privately** through GitHub's
-[private vulnerability reporting](https://github.com/erik-sundvalls-bots/z3-wasm-singlethread/security/advisories/new)
+[private vulnerability reporting](https://github.com/regionstockholm/z3-wasm-singlethread/security/advisories/new)
 ("Security" tab → "Report a vulnerability"). Do not open a public issue for security problems.
 
 We aim to acknowledge reports within 7 days.
