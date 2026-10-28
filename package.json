@@ -1,0 +1,24 @@
+{
+  "name": "z3-wasm-singlethread",
+  "version": "0.0.0-unreleased",
+  "private": true,
+  "description": "Z3 built from a pinned upstream release tag as a single-threaded WebAssembly ES module (no SharedArrayBuffer, no COOP/COEP), with a minimal SMT-LIB2 text API.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erik-sundvalls-bots/z3-wasm-singlethread.git"
+  },
+  "exports": {
+    ".": {
+      "browser": { "types": "./dist/browser.d.ts", "default": "./dist/browser.mjs" },
+      "default": { "types": "./dist/index.d.ts", "default": "./dist/index.mjs" }
+    }
+  },
+  "files": ["dist", "LICENSE", "README.md"],
+  "scripts": {
+    "fetch": "scripts/fetch-sources.sh",
+    "build": "scripts/build.sh",
+    "test": "node test/smoke.mjs dist"
+  }
+}
