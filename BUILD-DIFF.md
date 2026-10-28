@@ -35,3 +35,11 @@ return promises.
 | module format | `MODULARIZE=1`, CommonJS `z3-built.js`, `EXPORT_NAME=initZ3` | `MODULARIZE=1`, `EXPORT_ES6=1`, `z3-built.mjs`, `EXPORT_NAME=createZ3Module` | ES module for direct browser/Deno import |
 | runtime methods | `PThread, ccall, FS, UTF8ToString, intArrayFromString, addFunction, removeFunction` | `UTF8ToString, stringToNewUTF8` | only what the wrapper uses |
 | exceptions | `-fexceptions -s DISABLE_EXCEPTION_CATCHING=0` | same by default | |
+
+## Optional: native WebAssembly exceptions
+
+`Z3W_EXCEPTIONS=wasm` in `versions.env` replaces upstream's JavaScript-based exception emulation
+with `-fwasm-exceptions` (supported by all current browsers, Node ≥ 17, Deno). In a local
+measurement this made `z3-built.wasm` 23 % smaller (16.8 MB vs 21.9 MB) and the 225-query
+intEHRgrator run ~35 % faster, at the cost of one more deviation from upstream. The default stays
+`js` to keep the diff to threading only.

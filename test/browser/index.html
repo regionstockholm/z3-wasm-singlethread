@@ -1,0 +1,23 @@
+<!doctype html><meta charset=utf-8><script type=module>
+const out = {};
+out.crossOriginIsolated = self.crossOriginIsolated;
+out.sab = typeof SharedArrayBuffer !== "undefined";
+let t = performance.now();
+const { createZ3Worker } = await import("../../dist/browser.mjs");
+const z3 = await createZ3Worker();
+out.loadMs = Math.round(performance.now() - t);
+out.version = z3.version();
+t = performance.now();
+out.sbp = (await z3.evalSmtlib2("(declare-fun sbp () Real)(assert (not (or (< sbp 90.0) (and (>= sbp 90.0) (<= sbp 139.0)) (>= sbp 140.0))))(check-sat)(get-value (sbp))")).trim();
+out.sbpMs = Math.round(performance.now() - t);
+const hard = "(declare-const x Int)(declare-const y Int)(declare-const z Int)(assert (= (+ (* x x x) (* y y y) (* z z z)) 42))(assert (> x 1000))(check-sat)";
+out.timeout = (await z3.evalSmtlib2("(set-option :timeout 400)" + hard)).trim();
+const p = z3.evalSmtlib2(hard).then(r => "finished:" + r, e => "rejected:" + e.message);
+await new Promise(r => setTimeout(r, 300));
+t = performance.now();
+await z3.cancel();
+out.cancel = await p;
+out.cancelMs = Math.round(performance.now() - t);
+out.afterCancel = (await z3.evalSmtlib2("(declare-const a Int)(assert (> a 1))(check-sat)")).trim();
+window.__result = out;
+</script>
