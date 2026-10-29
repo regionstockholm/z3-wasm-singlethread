@@ -17,6 +17,7 @@ zips, NuGet packages and Python wheels only, and `z3-solver` always needs pthrea
 |---|---|---|---|
 | cmake | `-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DZ3_SINGLE_THREADED=ON` | same **+ `-DZ3_POLLING_TIMER=ON`** | Without threads, `scoped_timer` (used by `:timeout`) would try to start a `std::thread`; `POLLING_TIMER` makes Z3 check the deadline while it works instead. |
 | CXXFLAGS | `-pthread -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0` | `-s DISABLE_EXCEPTION_CATCHING=0` | Threading flags removed: no `SharedArrayBuffer`, so no COOP/COEP headers needed. Optional `Z3W_EXCEPTIONS=wasm` uses `-fwasm-exceptions` instead (see below). |
+| reproducibility | – | `-ffile-prefix-map=$WORK=.` on compile and link | Z3 embeds `__FILE__` in assertion messages; without the map, the absolute checkout path ends up in the wasm and the hash changes with the directory. |
 | LDFLAGS | `-s WASM_BIGINT -s -pthread -s USE_PTHREADS=1` | `-s WASM_BIGINT` | Threading flags removed. |
 
 Note that upstream already builds the solver with `-DZ3_SINGLE_THREADED=ON`; its pthreads exist
@@ -35,3 +36,11 @@ return promises.
 | module format | `MODULARIZE=1`, CommonJS `z3-built.js`, `EXPORT_NAME=initZ3` | `MODULARIZE=1`, `EXPORT_ES6=1`, `z3-built.mjs`, `EXPORT_NAME=createZ3Module` | ES module for direct browser/Deno import |
 | runtime methods | `PThread, ccall, FS, UTF8ToString, intArrayFromString, addFunction, removeFunction` | `UTF8ToString, stringToNewUTF8` | only what the wrapper uses |
 | exceptions | `-fexceptions -s DISABLE_EXCEPTION_CATCHING=0` | same by default | |
+
+## Optional: native WebAssembly exceptions
+
+`Z3W_EXCEPTIONS=wasm` in `versions.env` replaces upstream's JavaScript-based exception emulation
+with `-fwasm-exceptions` (supported by all current browsers, Node ≥ 17, Deno). In a local
+measurement this made `z3-built.wasm` 23 % smaller (16.8 MB vs 21.9 MB) and the 225-query
+intEHRgrator run ~35 % faster, at the cost of one more deviation from upstream. The default stays
+`js` to keep the diff to threading only.
