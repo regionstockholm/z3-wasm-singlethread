@@ -3,6 +3,7 @@ name: build
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -88,6 +89,31 @@ jobs:
       - name: Verify checksums
         run: cd dist && sha256sum -c SHA256SUMS
 
+      - name: Release archive (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Deterministic tarball: fixed order, owner and mtime (the tagged commit's time is not
+          # needed; epoch 0 keeps it independent of when the job ran).
+          tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='@0' \
+            -C dist -cf - . | gzip -n -9 > "z3-wasm-singlethread-${TAG}.tar.gz"
+          sha256sum "z3-wasm-singlethread-${TAG}.tar.gz" > "z3-wasm-singlethread-${TAG}.tar.gz.sha256"
+
+      - name: Attest release archive (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: z3-wasm-singlethread-${{ github.ref_name }}.tar.gz
+
+      - name: Keep the attested archive for the release job (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-archive
+          path: z3-wasm-singlethread-*.tar.gz*
+          if-no-files-found: error
+
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
@@ -97,3 +123,52 @@ jobs:
             dist/worker.mjs
             dist/browser.mjs
             dist/SHA256SUMS
+
+  release:
+    # Tag push (v*) -> draft GitHub Release with the attested files. A maintainer reviews the
+    # draft and publishes it. Never runs for branches or pull requests.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: attest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # create the release and upload assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Tag must be on main and match package.json
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "tag is not on main" >&2; exit 1; }
+          v=$(node -p 'require("./package.json").version')
+          [ "v$v" = "$TAG" ] || { echo "package.json version $v does not match tag $TAG" >&2; exit 1; }
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: z3-wasm-singlethread
+          path: dist
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-archive
+          path: .
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          (cd dist && sha256sum -c SHA256SUMS)
+          sha256sum -c "z3-wasm-singlethread-${TAG}.tar.gz.sha256"
+          # Release notes: the section for this version from CHANGELOG.md.
+          awk -v v="${TAG#v}" '$0 ~ "^## \\[?"v"\\]?" {p=1; next} /^## / && p {exit} p' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "no CHANGELOG.md section for ${TAG#v}" >&2; exit 1; }
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "$TAG" --notes-file notes.md \
+            "z3-wasm-singlethread-${TAG}.tar.gz" "z3-wasm-singlethread-${TAG}.tar.gz.sha256" \
+            dist/z3-built.wasm dist/z3-built.mjs dist/index.mjs dist/index.d.ts \
+            dist/worker.mjs dist/browser.mjs dist/browser.d.ts \
+            dist/SHA256SUMS dist/BUILDINFO dist/LICENSE dist/Z3-LICENSE.txt
